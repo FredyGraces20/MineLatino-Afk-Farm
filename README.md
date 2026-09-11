@@ -25,6 +25,9 @@ Requiere Java 21. Todos los módulos vienen desactivados por defecto.
 
 Los recorridos se graban caminando desde la pestaña **Recorrido**, pueden guardarse con nombre,
 reutilizarse y eliminarse. La versión 2 del JSON migra automáticamente configuraciones anteriores.
+Durante la reproducción se usa una mira adelantada para suavizar curvas, se resincronizan puntos
+sobrepasados y los saltos son pulsos breves. Si no existe progreso real durante seis segundos, el
+flujo se detiene con un diagnóstico en lugar de quedarse girando indefinidamente.
 
 Abrir otra pantalla, usar las teclas de movimiento o cancelar desde el menú detiene la
 secuencia y libera las teclas simuladas.
@@ -42,6 +45,11 @@ El ataque solo puede activarse en `play.minelatino.com`. Además exige simultán
 
 La frecuencia no existe en la interfaz, el JSON ni el backend. Solo puede cambiarse publicando
 una nueva compilación oficial. Consulta [docs/attack-policy.md](docs/attack-policy.md).
+
+Cuando no encuentra un objetivo, el HUD informa el tipo real que recibió el cliente, si está fuera
+de alcance, sin línea de visión o sin seleccionar. Los mobs de MythicMobs disfrazados como jugador
+se mantienen excluidos porque el cliente no puede diferenciarlos de un usuario real sin un puente
+autorizado del servidor.
 
 ## Prueba de tiempos web
 

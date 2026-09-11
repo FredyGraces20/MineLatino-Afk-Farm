@@ -2,6 +2,7 @@ package com.minelatino.afkfarm.client;
 
 import com.minelatino.afkfarm.AfkFarmConfig;
 import com.minelatino.afkfarm.AfkFarmAttackPolicy;
+import com.minelatino.afkfarm.RecordedRouteNavigator;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -15,6 +16,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.TamableAnimal;
 import net.minecraft.world.entity.monster.Enemy;
+import net.minecraft.world.entity.player.Player;
 
 /** Tick-driven AFK workflow. All Minecraft interaction happens on the client thread. */
 public final class AfkFarmClient {
@@ -22,8 +24,12 @@ public final class AfkFarmClient {
     public static final double ATTACK_SEARCH_RADIUS = 4.5;
     private static final int WORLD_READY_TICKS = 20;
     private static final int TRANSFER_SCREEN_GRACE_TICKS = 200;
-    private static final double ROUTE_RECORDING_STEP = 0.35;
-    private static final double WAYPOINT_RADIUS = 0.65;
+    private static final double ROUTE_RECORDING_STEP = 0.65;
+    private static final double WAYPOINT_RADIUS = 0.72;
+    private static final int ROUTE_STUCK_JUMP_TICKS = 24;
+    private static final int ROUTE_ABORT_TICKS = 120;
+    private static final int JUMP_PULSE_TICKS = 2;
+    private static final int JUMP_COOLDOWN_TICKS = 18;
     private static final String AUTHORIZED_SERVER = "play.minelatino.com";
     private static final AfkFarmClient INSTANCE = new AfkFarmClient();
 
@@ -47,6 +53,11 @@ public final class AfkFarmClient {
     private long lastAttackTick = Long.MIN_VALUE / 2;
     private int commandIndex;
     private int routeIndex;
+    private boolean routeInitialized;
+    private double routeBestDistance;
+    private long routeProgressTick;
+    private int jumpPulseTicks;
+    private int jumpCooldownTicks;
     private String status = "";
 
     public static AfkFarmClient instance() { return INSTANCE; }
@@ -208,6 +219,9 @@ public final class AfkFarmClient {
 
     private void beginMovementDelay(AfkFarmConfig.Snapshot config) {
         routeIndex = 0;
+        routeInitialized = false;
+        jumpPulseTicks = 0;
+        jumpCooldownTicks = 0;
         state = State.WAITING_MOVEMENT;
         deadline = ticks + seconds(config.movementStartDelaySeconds());
         status = "Esperando teletransporte · comenzando movimiento en " + remainingSeconds() + " segundos";
@@ -240,21 +254,32 @@ public final class AfkFarmClient {
             cancel("Selecciona o graba un recorrido antes de caminar");
             return;
         }
-        routeIndex = Math.min(routeIndex, route.points().size() - 1);
-        AfkFarmConfig.RoutePoint point = route.points().get(routeIndex);
-        double dx = point.x() - minecraft.player.getX();
-        double dy = point.y() - minecraft.player.getY();
-        double dz = point.z() - minecraft.player.getZ();
-        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-        double acceptedRadius = routeIndex == route.points().size() - 1 ? config.arrivalRadius() : WAYPOINT_RADIUS;
-        if (distance <= acceptedRadius) {
-            routeIndex++;
-            if (routeIndex >= route.points().size()) {
-                releaseControls();
-                beginAttackOrComplete(config);
-            }
+        if (!routeInitialized) initializeRoute(route, minecraft);
+        int previousIndex = routeIndex;
+        routeIndex = RecordedRouteNavigator.advance(route.points(), routeIndex,
+                minecraft.player.getX(), minecraft.player.getY(), minecraft.player.getZ(), WAYPOINT_RADIUS);
+        AfkFarmConfig.RoutePoint finalPoint = route.points().getLast();
+        double finalDistance = distance(finalPoint, minecraft.player.getX(), minecraft.player.getY(), minecraft.player.getZ());
+        if (routeIndex >= route.points().size() - 1 && finalDistance <= config.arrivalRadius()) {
+            releaseControls();
+            beginAttackOrComplete(config);
             return;
         }
+        double progressDistance = distance(route.points().get(routeIndex), minecraft.player.getX(),
+                minecraft.player.getY(), minecraft.player.getZ());
+        if (routeIndex != previousIndex) markRouteProgress(progressDistance);
+        else if (progressDistance + 0.18 < routeBestDistance) markRouteProgress(progressDistance);
+        long stuckTicks = ticks - routeProgressTick;
+        if (stuckTicks >= ROUTE_ABORT_TICKS) {
+            cancel("Recorrido bloqueado durante 6 segundos · vuelve a grabarlo alrededor del obstáculo");
+            return;
+        }
+
+        int lookAhead = RecordedRouteNavigator.lookAheadIndex(route.points(), routeIndex);
+        AfkFarmConfig.RoutePoint point = route.points().get(lookAhead);
+        double dx = point.x() - minecraft.player.getX();
+        double dz = point.z() - minecraft.player.getZ();
+        double distance = Math.sqrt(dx * dx + dz * dz);
 
         float targetYaw = (float)(Math.toDegrees(Math.atan2(dz, dx)) - 90.0);
         minecraft.player.setYRot(approachAngle(minecraft.player.getYRot(), targetYaw,
@@ -262,9 +287,20 @@ public final class AfkFarmClient {
         minecraft.player.setYHeadRot(minecraft.player.getYRot());
         driving = true;
         minecraft.options.keyUp.setDown(true);
-        minecraft.options.keyJump.setDown(minecraft.player.horizontalCollision || dy > 0.45);
-        status = String.format(Locale.ROOT, "Recorrido %s · punto %d/%d · %.1f bloques",
-                route.name(), routeIndex + 1, route.points().size(), distance);
+        if (jumpCooldownTicks > 0) jumpCooldownTicks--;
+        boolean recordedStep = RecordedRouteNavigator.maximumRise(route.points(), routeIndex, lookAhead,
+                minecraft.player.getY()) > 0.42;
+        if (jumpPulseTicks <= 0 && jumpCooldownTicks <= 0
+                && (minecraft.player.horizontalCollision || recordedStep || stuckTicks >= ROUTE_STUCK_JUMP_TICKS)) {
+            jumpPulseTicks = JUMP_PULSE_TICKS;
+            jumpCooldownTicks = JUMP_COOLDOWN_TICKS;
+        }
+        boolean jumping = jumpPulseTicks > 0;
+        minecraft.options.keyJump.setDown(jumping);
+        if (jumping) jumpPulseTicks--;
+        status = String.format(Locale.ROOT, "Recorrido %s · punto %d/%d · %.1f bloques%s",
+                route.name(), routeIndex + 1, route.points().size(), distance,
+                stuckTicks >= ROUTE_STUCK_JUMP_TICKS ? " · sorteando obstáculo" : "");
     }
 
     private void beginAttackOrComplete(AfkFarmConfig.Snapshot config) {
@@ -294,7 +330,7 @@ public final class AfkFarmClient {
         }
         LivingEntity target = nearestTarget(minecraft, config);
         if (target == null) {
-            status = "Sin objetivos permitidos cerca";
+            status = targetDiagnostic(minecraft, config);
             return;
         }
         rotateToward(minecraft, target, (float)config.maxCameraRotationDegreesPerTick());
@@ -330,6 +366,48 @@ public final class AfkFarmClient {
             return AfkFarmAttackPolicy.allowsId(config.attackAnimals(), config.allowedAnimals(), id);
         }
         return false;
+    }
+
+    private String targetDiagnostic(Minecraft minecraft, AfkFarmConfig.Snapshot config) {
+        List<LivingEntity> nearby = minecraft.level.getEntitiesOfClass(LivingEntity.class,
+                minecraft.player.getBoundingBox().inflate(12), entity -> entity.isAlive() && entity != minecraft.player);
+        LivingEntity entity = nearby.stream().min(Comparator
+                .comparingInt(AfkFarmClient::targetDiagnosticPriority)
+                .thenComparingDouble(minecraft.player::distanceToSqr)).orElse(null);
+        if (entity == null) return "Sin entidades vivas en 12 bloques";
+        double blocks = Math.sqrt(minecraft.player.distanceToSqr(entity));
+        if (entity instanceof Player)
+            return String.format(Locale.ROOT, "Entidad vista como jugador a %.1f bloques · usuarios/disguises excluidos", blocks);
+        String id = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
+        if (blocks > ATTACK_SEARCH_RADIUS)
+            return String.format(Locale.ROOT, "%s está a %.1f bloques · alcance de búsqueda %.1f", id, blocks, ATTACK_SEARCH_RADIUS);
+        if (!minecraft.player.hasLineOfSight(entity)) return id + " sin línea de visión";
+        if (entity instanceof Enemy && !config.attackHostileMobs()) return "Activa mobs hostiles para " + id;
+        if (entity instanceof Enemy && !AfkFarmAttackPolicy.allowsId(true, config.allowedHostileMobs(), id))
+            return id + " no está seleccionado";
+        if (entity instanceof Animal && !config.attackAnimals()) return "Activa animales para " + id;
+        if (entity instanceof Animal && !AfkFarmAttackPolicy.allowsId(true, config.allowedAnimals(), id))
+            return id + " no está seleccionado";
+        return id + " no es una categoría atacable";
+    }
+
+    private static int targetDiagnosticPriority(LivingEntity entity) {
+        if (entity instanceof Enemy || entity instanceof Animal) return 0;
+        if (entity instanceof Player) return 1;
+        return 2;
+    }
+
+    private void initializeRoute(AfkFarmConfig.SavedRoute route, Minecraft minecraft) {
+        routeIndex = RecordedRouteNavigator.startingIndex(route.points(), minecraft.player.getX(),
+                minecraft.player.getY(), minecraft.player.getZ());
+        routeInitialized = true;
+        markRouteProgress(distance(route.points().get(routeIndex), minecraft.player.getX(),
+                minecraft.player.getY(), minecraft.player.getZ()));
+    }
+
+    private void markRouteProgress(double distance) {
+        routeBestDistance = distance;
+        routeProgressTick = ticks;
     }
 
     private void rotateToward(Minecraft minecraft, LivingEntity target, float maximum) {
@@ -407,6 +485,11 @@ public final class AfkFarmClient {
     private static double distanceSquared(AfkFarmConfig.RoutePoint a, AfkFarmConfig.RoutePoint b) {
         double x = a.x() - b.x(), y = a.y() - b.y(), z = a.z() - b.z();
         return x * x + y * y + z * z;
+    }
+
+    private static double distance(AfkFarmConfig.RoutePoint point, double x, double y, double z) {
+        double dx = point.x() - x, dy = point.y() - y, dz = point.z() - z;
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     private static boolean attackAuthorized(Minecraft minecraft) {
