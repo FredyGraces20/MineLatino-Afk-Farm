@@ -1,52 +1,52 @@
 [
   {
+    "name": "MineLatino AFK Farm",
     "versions": [
       {
+        "loader": "fabric",
+        "fileName": "minelatino-afk-farm-fabric-1.21.4-0.1.0-alpha.2.jar",
+        "fileSize": 53282,
+        "sha1": "444bac54dc54887c8ab6b9587d3213265effc009",
+        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.2/minelatino-afk-farm-fabric-1.21.4-0.1.0-alpha.2.jar",
+        "modVersion": "0.1.0-alpha.2",
         "minecraftVersions": [
           "1.21.4"
-        ],
-        "sha1": "cc6e99f56ddb809996f3c261e12eb55bb0700dfc",
-        "fileName": "minelatino-afk-farm-fabric-1.21.4-0.1.0-alpha.1.jar",
-        "modVersion": "0.1.0-alpha.1",
-        "loader": "fabric",
-        "fileSize": 35731,
-        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.1/minelatino-afk-farm-fabric-1.21.4-0.1.0-alpha.1.jar"
+        ]
       },
       {
+        "loader": "forge",
+        "fileName": "minelatino-afk-farm-forge-1.21.4-0.1.0-alpha.2.jar",
+        "fileSize": 55499,
+        "sha1": "7be796ede5f9dcee43680cd8690027fccdaa3ba6",
+        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.2/minelatino-afk-farm-forge-1.21.4-0.1.0-alpha.2.jar",
+        "modVersion": "0.1.0-alpha.2",
         "minecraftVersions": [
           "1.21.4"
-        ],
-        "sha1": "28fa1ff3788ca8c0829229859d1b526ff0f6f184",
-        "fileName": "minelatino-afk-farm-forge-1.21.4-0.1.0-alpha.1.jar",
-        "modVersion": "0.1.0-alpha.1",
-        "loader": "forge",
-        "fileSize": 37998,
-        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.1/minelatino-afk-farm-forge-1.21.4-0.1.0-alpha.1.jar"
+        ]
       },
       {
-        "minecraftVersions": [
-          "1.21.11"
-        ],
-        "sha1": "0b39c4dfb845679b655eefdabcf9980b73d16e7e",
-        "fileName": "minelatino-afk-farm-fabric-1.21.11-0.1.0-alpha.1.jar",
-        "modVersion": "0.1.0-alpha.1",
         "loader": "fabric",
-        "fileSize": 35735,
-        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.1/minelatino-afk-farm-fabric-1.21.11-0.1.0-alpha.1.jar"
-      },
-      {
+        "fileName": "minelatino-afk-farm-fabric-1.21.11-0.1.0-alpha.2.jar",
+        "fileSize": 53281,
+        "sha1": "5d856c3ea4855d72c2f05132951124dd3e9f35b0",
+        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.2/minelatino-afk-farm-fabric-1.21.11-0.1.0-alpha.2.jar",
+        "modVersion": "0.1.0-alpha.2",
         "minecraftVersions": [
           "1.21.11"
-        ],
-        "sha1": "5fd954fd29ece56f72ceda61b3b3225efddada5c",
-        "fileName": "minelatino-afk-farm-forge-1.21.11-0.1.0-alpha.1.jar",
-        "modVersion": "0.1.0-alpha.1",
+        ]
+      },
+      {
         "loader": "forge",
-        "fileSize": 37939,
-        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.1/minelatino-afk-farm-forge-1.21.11-0.1.0-alpha.1.jar"
+        "fileName": "minelatino-afk-farm-forge-1.21.11-0.1.0-alpha.2.jar",
+        "fileSize": 55440,
+        "sha1": "df599abac3bd017ad9a68b6ba2ee6ba8684386ca",
+        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.2/minelatino-afk-farm-forge-1.21.11-0.1.0-alpha.2.jar",
+        "modVersion": "0.1.0-alpha.2",
+        "minecraftVersions": [
+          "1.21.11"
+        ]
       }
     ],
-    "name": "MineLatino AFK Farm",
     "id": "minelatino-afk-farm"
   }
 ]
