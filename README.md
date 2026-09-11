@@ -4,6 +4,19 @@ Mod cliente de automatización controlada para MineLatino. La configuración se 
 botón **AFK Farm** del menú de pausa y se guarda localmente en
 `config/minelatino-afk-farm/afk-farm.json`.
 
+## Asistente IA
+
+La pantalla nativa **Asistente MineLatino** se abre desde AFK Farm o con la tecla
+configurable **Abrir asistente IA MineLatino** (apóstrofo por defecto). Reutiliza la
+sesión ya vinculada de Cosméticos MineLatino, admite mensajes multilínea, historial,
+scroll, copiado, cancelación y conversaciones nuevas. Abrirla detiene de forma segura
+la automatización y nunca la reanuda por sí sola.
+
+El mod canjea la sesión de juego por un Bearer de diez minutos con los alcances
+`ai:chat` y `afk:assistant`. La clave del proveedor no existe en el JAR ni en el
+launcher: vive solamente en el backend privado. Sin una cuenta conectada se muestra
+`Vuelve a vincular tu cuenta MineLatino`.
+
 ## Compatibilidad
 
 | Minecraft | Fabric | Forge |
@@ -53,10 +66,11 @@ autorizado del servidor.
 
 ## Prueba de tiempos web
 
-El panel administrativo incluye **Launcher → AFK Farm**. Allí se pueden validar hasta 10
-comandos y simular en tiempo real las esperas posterior a la conexión, entre comandos y antes
-del recorrido. Es un simulador seguro: no ejecuta comandos ni sobrescribe configuraciones de
-jugadores conectados.
+El panel administrativo incluye **Launcher → AFK Farm**. Allí se asigna o establece tiempo por
+cuenta MineLatino y también se pueden validar hasta 10 comandos y simular sus esperas. El saldo
+real permanece en el backend; el mod muestra cuánto queda y no inicia el flujo cuando llega a cero.
+Mientras está activo abre una única sesión por cuenta y envía un heartbeat cada 20 segundos. El
+servidor calcula el consumo con su propio reloj y detiene permisos vencidos o sin saldo.
 
 ## Compilar
 

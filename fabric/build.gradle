@@ -11,9 +11,11 @@ dependencies {
     minecraft "com.mojang:minecraft:${mcVersion}"
     mappings loom.officialMojangMappings()
     modImplementation "net.fabricmc:fabric-loader:${fabricLoader}"
+    if (project.hasProperty('cosmeticsDevJar')) modRuntimeOnly files(project.property('cosmeticsDevJar'))
 }
 sourceSets.main {
-    java.srcDirs '../common/src/main/java', '../client/src/main/java'
+    java.srcDirs '../common/src/main/java', '../client/src/main/java',
+        (mcVersion == '1.21.11' ? '../client-1.21.11/src/main/java' : '../client-1.21.4/src/main/java')
     resources.srcDirs 'src/main/resources', '../client/src/main/resources'
 }
 processResources {
@@ -25,4 +27,3 @@ processResources {
         expand(version: project.version, mcVersion: mcVersion, fabricLoader: fabricLoader)
     }
 }
-

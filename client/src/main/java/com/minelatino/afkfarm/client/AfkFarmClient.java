@@ -66,7 +66,22 @@ public final class AfkFarmClient {
     public int recordedPointCount() { return recordedPoints.size(); }
     public String status() { return status; }
 
+    /** Opening the assistant always leaves automation stopped until the user starts it again. */
+    public void pauseForAssistant() {
+        if (active) cancel("AFK Farm pausado al abrir el asistente IA");
+        if (recording) {
+            recording = false;
+            recordedPoints.clear();
+            status = "Grabación cancelada al abrir el asistente IA";
+        }
+    }
+
     public void start() {
+        status = "Validando tiempo de uso AFK Farm";
+        AfkUsageController.instance().start(this::startAuthorized, message -> status = message);
+    }
+
+    private void startAuthorized() {
         if (recording) stopRecording();
         active = true;
         state = State.WAITING_WORLD;
@@ -79,6 +94,7 @@ public final class AfkFarmClient {
 
     public boolean startRecording(String name) {
         Minecraft minecraft = Minecraft.getInstance();
+        AiAssistantKeybind.handleTick(minecraft);
         if (!worldReady(minecraft)) { status = "Entra a un servidor antes de grabar"; return false; }
         cancel(null);
         recording = true;
@@ -108,6 +124,7 @@ public final class AfkFarmClient {
 
     public void cancel(String reason) {
         releaseControls();
+        AfkUsageController.instance().stop();
         active = false;
         state = State.IDLE;
         sequenceStarted = false;
@@ -118,6 +135,7 @@ public final class AfkFarmClient {
     public void tick() {
         ticks++;
         Minecraft minecraft = Minecraft.getInstance();
+        AfkUsageController.instance().tick(active);
         AutoReconnect.tick();
         AutoReconnect.remember(minecraft.getCurrentServer());
 

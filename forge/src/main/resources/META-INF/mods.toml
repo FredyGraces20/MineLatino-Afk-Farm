@@ -19,3 +19,9 @@ mandatory=true
 versionRange="[${mcVersion}]"
 ordering="NONE"
 side="CLIENT"
+[[dependencies.minelatino_afk_farm]]
+modId="minelatino_cosmetics"
+mandatory=true
+versionRange="[0,)"
+ordering="AFTER"
+side="CLIENT"

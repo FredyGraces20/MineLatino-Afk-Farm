@@ -20,6 +20,7 @@ public final class AfkFarmScreen extends Screen {
     private final List<LabeledField> fields = new ArrayList<>();
     private EditBox commands, postJoin, betweenCommands, movementDelay;
     private EditBox radius, rotation, routeName;
+    private Button flowButton;
 
     public AfkFarmScreen(Screen parent) { this(parent, Tab.GENERAL); }
     private AfkFarmScreen(Screen parent, Tab tab) {
@@ -50,6 +51,7 @@ public final class AfkFarmScreen extends Screen {
     }
 
     private void initGeneral(int left, int width) {
+        AfkUsageController.instance().refresh();
         AfkFarmConfig config = config();
         var value = config.snapshot();
         int y = 55;
@@ -58,12 +60,17 @@ public final class AfkFarmScreen extends Screen {
         addToggle(left, y, width, "Módulo de recorrido", value.navigationEnabled(), config::setNavigationEnabled); y += 24;
         addToggle(left, y, width, "Módulo de ataque", value.autoAttackEnabled(), config::setAutoAttackEnabled); y += 29;
         boolean active = AfkFarmClient.instance().active();
-        addRenderableWidget(Button.builder(Component.literal(active ? "Detener flujo AFK" : "Iniciar flujo AFK"), button -> {
+        int gap = 4, assistantWidth = Math.max(90, (width - gap) / 2);
+        addRenderableWidget(Button.builder(Component.literal("Asistente IA"), button ->
+                minecraft.setScreen(new AiAssistantScreen(this)))
+                .bounds(left, Math.min(y, height - 52), assistantWidth, 20).build());
+        flowButton = addRenderableWidget(Button.builder(Component.literal(active ? "Detener flujo AFK" : "Iniciar flujo AFK"), button -> {
             saveFields();
             if (active) AfkFarmClient.instance().cancel("Flujo cancelado por el usuario");
             else AfkFarmClient.instance().start();
             minecraft.setScreen(null);
-        }).bounds(left, Math.min(y, height - 52), width, 20).build());
+        }).bounds(left + assistantWidth + gap, Math.min(y, height - 52), width - assistantWidth - gap, 20).build());
+        flowButton.active = active;
     }
 
     private void initCommands(int left, int width) {
@@ -191,7 +198,15 @@ public final class AfkFarmScreen extends Screen {
             graphics.drawString(font, value.label(), value.box().getX(), value.box().getY() - 9, 0xFFB7C3CC, false);
         super.render(graphics, mouseX, mouseY, delta);
         if (tab == Tab.GENERAL)
-            graphics.drawCenteredString(font, "Los módulos y recorridos se guardan por separado.", width / 2, Math.min(height - 42, 165), 0xFF8E9AA5);
+        {
+            AfkUsageController usage = AfkUsageController.instance();
+            long seconds = usage.remainingSeconds();
+            if (flowButton != null && !AfkFarmClient.instance().active()) flowButton.active = usage.canStart();
+            String balance = seconds < 0 ? usage.message() : "Tiempo AFK disponible: " + formatDuration(seconds);
+            int color = seconds == 0 ? 0xFFFF7676 : seconds < 0 ? 0xFFFFC857 : 0xFF62E8C6;
+            graphics.drawCenteredString(font, balance, width / 2, Math.min(height - 68, 172), color);
+            graphics.drawCenteredString(font, "Los módulos y recorridos se guardan por separado.", width / 2, Math.min(height - 42, 184), 0xFF8E9AA5);
+        }
         else if (tab == Tab.ATTACK)
             graphics.drawCenteredString(font, "Solo MineLatino · mascotas domesticadas y jugadores excluidos", width / 2, Math.min(height - 42, 169), 0xFFFFC857);
     }
@@ -205,6 +220,12 @@ public final class AfkFarmScreen extends Screen {
     private static double decimal(EditBox box, double fallback) { try { return Double.parseDouble(box.getValue().trim().replace(',', '.')); } catch (Exception ignored) { return fallback; } }
     private static String number(double value) { return value == Math.rint(value) ? Long.toString(Math.round(value)) : Double.toString(value); }
     private static String toggleLabel(String label, boolean enabled) { return label + ": " + (enabled ? "Activado" : "Desactivado"); }
+    private static String formatDuration(long total) {
+        long days = total / 86400, hours = total % 86400 / 3600, minutes = total % 3600 / 60, seconds = total % 60;
+        if (days > 0) return days + "d " + hours + "h " + minutes + "m";
+        if (hours > 0) return hours + "h " + minutes + "m";
+        return minutes + "m " + seconds + "s";
+    }
     private String trim(String value, int width) { return font.plainSubstrByWidth(value, Math.max(30, width - 12)); }
     private static String tabName(Tab tab) { return switch (tab) { case GENERAL -> "General"; case COMMANDS -> "Tiempos"; case MOVEMENT -> "Recorrido"; case ATTACK -> "Ataque"; }; }
 }
