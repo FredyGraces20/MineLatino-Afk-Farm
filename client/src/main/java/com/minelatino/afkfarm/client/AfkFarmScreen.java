@@ -10,7 +10,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-/** Tabbed configuration screen; keeps the independent modules visually separate. */
+/** Compact tabbed configuration screen with recorded routes and explicit target selection. */
 public final class AfkFarmScreen extends Screen {
     private enum Tab { GENERAL, COMMANDS, MOVEMENT, ATTACK }
     private record LabeledField(String label, EditBox box) {}
@@ -18,17 +18,8 @@ public final class AfkFarmScreen extends Screen {
     private final Screen parent;
     private final Tab tab;
     private final List<LabeledField> fields = new ArrayList<>();
-    private EditBox commands;
-    private EditBox postJoin;
-    private EditBox betweenCommands;
-    private EditBox movementDelay;
-    private EditBox targetX;
-    private EditBox targetY;
-    private EditBox targetZ;
-    private EditBox radius;
-    private EditBox rotation;
-    private EditBox hostileIds;
-    private EditBox animalIds;
+    private EditBox commands, postJoin, betweenCommands, movementDelay;
+    private EditBox radius, rotation, routeName;
 
     public AfkFarmScreen(Screen parent) { this(parent, Tab.GENERAL); }
     private AfkFarmScreen(Screen parent, Tab tab) {
@@ -44,8 +35,9 @@ public final class AfkFarmScreen extends Screen {
         int tabWidth = (panelWidth - 9) / 4;
         for (int i = 0; i < Tab.values().length; i++) {
             Tab value = Tab.values()[i];
-            addRenderableWidget(Button.builder(Component.literal(tabName(value)), button -> switchTab(value))
+            Button button = addRenderableWidget(Button.builder(Component.literal(tabName(value)), ignored -> switchTab(value))
                     .bounds(left + i * (tabWidth + 3), 24, tabWidth, 20).build());
+            button.active = value != tab;
         }
         switch (tab) {
             case GENERAL -> initGeneral(left, panelWidth);
@@ -60,70 +52,96 @@ public final class AfkFarmScreen extends Screen {
     private void initGeneral(int left, int width) {
         AfkFarmConfig config = config();
         var value = config.snapshot();
-        int y = 57;
-        addToggle(left, y, width, "Reconexión automática", value.autoReconnect(), config::setAutoReconnect); y += 25;
-        addToggle(left, y, width, "Módulo de comandos", value.commandsEnabled(), config::setCommandsEnabled); y += 25;
-        addToggle(left, y, width, "Módulo de movimiento", value.navigationEnabled(), config::setNavigationEnabled); y += 25;
-        addToggle(left, y, width, "Módulo de ataque", value.autoAttackEnabled(), config::setAutoAttackEnabled); y += 30;
+        int y = 55;
+        addToggle(left, y, width, "Reconexión automática", value.autoReconnect(), config::setAutoReconnect); y += 24;
+        addToggle(left, y, width, "Módulo de comandos", value.commandsEnabled(), config::setCommandsEnabled); y += 24;
+        addToggle(left, y, width, "Módulo de recorrido", value.navigationEnabled(), config::setNavigationEnabled); y += 24;
+        addToggle(left, y, width, "Módulo de ataque", value.autoAttackEnabled(), config::setAutoAttackEnabled); y += 29;
         boolean active = AfkFarmClient.instance().active();
         addRenderableWidget(Button.builder(Component.literal(active ? "Detener flujo AFK" : "Iniciar flujo AFK"), button -> {
             saveFields();
             if (active) AfkFarmClient.instance().cancel("Flujo cancelado por el usuario");
             else AfkFarmClient.instance().start();
-            // Return to gameplay. Returning to the pause screen would immediately
-            // trigger the intentional "screen changed" cancellation guard.
             minecraft.setScreen(null);
         }).bounds(left, Math.min(y, height - 52), width, 20).build());
     }
 
     private void initCommands(int left, int width) {
         var value = config().snapshot();
-        int y = 62;
-        commands = field(left, y, width, "Comandos separados por ;", String.join("; ", value.commands()), 2048); y += 39;
-        int third = (width - 8) / 3;
-        postJoin = field(left, y, third, "Al entrar (0–300 s)", Integer.toString(value.postJoinDelaySeconds()), 3);
-        betweenCommands = field(left + third + 4, y, third, "Entre comandos (0–60 s)",
-                Integer.toString(value.betweenCommandsDelaySeconds()), 2);
-        movementDelay = field(left + (third + 4) * 2, y, width - (third + 4) * 2,
-                "Antes de caminar (0–300 s)", Integer.toString(value.movementStartDelaySeconds()), 3);
+        int y = height < 230 ? 45 : 54;
+        int gap = height < 230 ? 33 : 37;
+        commands = field(left, y, width, "Comandos separados por ;", String.join("; ", value.commands()), 2048); y += gap;
+        postJoin = field(left, y, width, "Espera al entrar al host (0–300 segundos)", Integer.toString(value.postJoinDelaySeconds()), 3); y += gap;
+        betweenCommands = field(left, y, width, "Espera entre comandos (0–60 segundos)", Integer.toString(value.betweenCommandsDelaySeconds()), 2); y += gap;
+        movementDelay = field(left, y, width, "Espera tras el último comando (0–300 segundos)", Integer.toString(value.movementStartDelaySeconds()), 3);
     }
 
     private void initMovement(int left, int width) {
         var value = config().snapshot();
-        int y = 62;
-        int third = (width - 8) / 3;
-        targetX = field(left, y, third, "Destino X", number(value.targetX()), 24);
-        targetY = field(left + third + 4, y, third, "Destino Y", number(value.targetY()), 24);
-        targetZ = field(left + (third + 4) * 2, y, width - (third + 4) * 2, "Destino Z", number(value.targetZ()), 24);
-        y += 42;
+        boolean compact = height < 230;
+        int y = compact ? 45 : 54;
         int half = (width - 4) / 2;
-        radius = field(left, y, half, "Radio de llegada (0.25–32)", number(value.arrivalRadius()), 12);
-        rotation = field(left + half + 4, y, width - half - 4, "Giro máximo por tick (0.5–30°)",
-                number(value.maxCameraRotationDegreesPerTick()), 12);
+        radius = field(left, y, half, "Radio final (0.25–32)", number(value.arrivalRadius()), 12);
+        rotation = field(left + half + 4, y, width - half - 4, "Giro máximo (0.5–30°)", number(value.maxCameraRotationDegreesPerTick()), 12);
+        y += compact ? 34 : 39;
+        var activeRoute = value.routes().stream().filter(route -> route.name().equals(value.activeRoute())).findFirst().orElse(null);
+        String routeLabel = activeRoute == null ? "Sin recorrido seleccionado" : activeRoute.name() + " · " + activeRoute.points().size() + " puntos";
+        Button current = addRenderableWidget(Button.builder(Component.literal(trim(routeLabel, width)), button -> {})
+                .bounds(left, y, width, 20).build());
+        current.active = false;
+        y += compact ? 23 : 24;
+        routeName = field(left, y, width, "Nombre del nuevo recorrido", "Recorrido", 48); y += compact ? 34 : 37;
+        boolean recording = AfkFarmClient.instance().recording();
+        addRenderableWidget(Button.builder(Component.literal(recording ? "Detener y guardar grabación" : "Grabar recorrido caminando"), button -> {
+            saveFields();
+            if (recording) {
+                AfkFarmClient.instance().stopRecording();
+                minecraft.setScreen(new AfkFarmScreen(parent, Tab.MOVEMENT));
+            } else if (AfkFarmClient.instance().startRecording(routeName.getValue())) minecraft.setScreen(null);
+        }).bounds(left, y, width, 20).build()); y += compact ? 23 : 24;
+        int third = (width - 8) / 3;
+        Button previous = addRenderableWidget(Button.builder(Component.literal("‹ Anterior"), button -> cycleRoute(-1))
+                .bounds(left, y, third, 20).build());
+        Button next = addRenderableWidget(Button.builder(Component.literal("Siguiente ›"), button -> cycleRoute(1))
+                .bounds(left + third + 4, y, third, 20).build());
+        Button delete = addRenderableWidget(Button.builder(Component.literal("Eliminar"), button -> deleteRoute())
+                .bounds(left + (third + 4) * 2, y, width - (third + 4) * 2, 20).build());
+        previous.active = next.active = value.routes().size() > 1;
+        delete.active = activeRoute != null;
     }
 
     private void initAttack(int left, int width) {
-        AfkFarmConfig config = config();
-        var value = config.snapshot();
-        int y = 57;
-        addToggle(left, y, width, "Atacar mobs hostiles", value.attackHostileMobs(), config::setAttackHostileMobs); y += 29;
-        hostileIds = field(left, y, width, "Hostiles permitidos (IDs separados por coma)",
-                String.join(", ", value.allowedHostileMobs()), 2048); y += 42;
-        addToggle(left, y, width, "Atacar animales", value.attackAnimals(), config::setAttackAnimals); y += 29;
-        animalIds = field(left, y, width, "Animales permitidos (ej. minecraft:cow)",
-                String.join(", ", value.allowedAnimals()), 2048);
+        var value = config().snapshot();
+        int y = 55;
+        addAttackToggle(left, y, width, "Atacar mobs hostiles", value.attackHostileMobs(), true); y += 24;
+        addRenderableWidget(Button.builder(Component.literal(trim("Elegir mobs · " + value.allowedHostileMobs().size() + " seleccionados", width)),
+                button -> minecraft.setScreen(new EntitySelectionScreen(this, EntitySelectionScreen.Category.HOSTILE)))
+                .bounds(left, y, width, 20).build()); y += 29;
+        addAttackToggle(left, y, width, "Atacar animales", value.attackAnimals(), false); y += 24;
+        addRenderableWidget(Button.builder(Component.literal(trim("Elegir animales · " + value.allowedAnimals().size() + " seleccionados", width)),
+                button -> minecraft.setScreen(new EntitySelectionScreen(this, EntitySelectionScreen.Category.ANIMAL)))
+                .bounds(left, y, width, 20).build());
     }
 
-    private void addToggle(int x, int y, int width, String label, boolean enabled,
-                           java.util.function.Consumer<Boolean> setter) {
-        addRenderableWidget(Button.builder(Component.literal(label + ": " + (enabled ? "Activado" : "Desactivado")), button -> {
+    private void addToggle(int x, int y, int width, String label, boolean enabled, java.util.function.Consumer<Boolean> setter) {
+        addRenderableWidget(Button.builder(Component.literal(trim(toggleLabel(label, enabled), width)), button -> {
             setter.accept(!enabled);
             minecraft.setScreen(new AfkFarmScreen(parent, tab));
         }).bounds(x, y, width, 20).build());
     }
 
+    private void addAttackToggle(int x, int y, int width, String label, boolean enabled, boolean hostile) {
+        addRenderableWidget(Button.builder(Component.literal(trim(toggleLabel(label, enabled), width)), button -> {
+            if (hostile) config().setAttackHostileMobs(!enabled); else config().setAttackAnimals(!enabled);
+            Screen returnTo = new AfkFarmScreen(parent, Tab.ATTACK);
+            if (!enabled) minecraft.setScreen(new EntitySelectionScreen(returnTo,
+                    hostile ? EntitySelectionScreen.Category.HOSTILE : EntitySelectionScreen.Category.ANIMAL));
+            else minecraft.setScreen(returnTo);
+        }).bounds(x, y, width, 20).build());
+    }
+
     private EditBox field(int x, int y, int width, String label, String value, int maxLength) {
-        EditBox box = new EditBox(font, x, y + 12, width, 20, Component.literal(label));
+        EditBox box = new EditBox(font, x, y + 11, width, 20, Component.literal(label));
         box.setMaxLength(maxLength);
         box.setValue(value);
         addRenderableWidget(box);
@@ -131,28 +149,36 @@ public final class AfkFarmScreen extends Screen {
         return box;
     }
 
-    private void switchTab(Tab next) {
-        saveFields();
-        minecraft.setScreen(new AfkFarmScreen(parent, next));
-    }
+    private void switchTab(Tab next) { saveFields(); minecraft.setScreen(new AfkFarmScreen(parent, next)); }
 
     private void saveFields() {
         AfkFarmConfig config = config();
         if (tab == Tab.COMMANDS && commands != null) {
             config.setCommands(split(commands.getValue(), ";"));
             config.setDelays(integer(postJoin, 10), integer(betweenCommands, 3), integer(movementDelay, 10));
-        } else if (tab == Tab.MOVEMENT && targetX != null) {
-            config.setNavigation(decimal(targetX, 0), decimal(targetY, 64), decimal(targetZ, 0),
-                    decimal(radius, 1.5), decimal(rotation, 8));
-        } else if (tab == Tab.ATTACK) {
-            config.setAllowedEntities(split(hostileIds == null ? "" : hostileIds.getValue(), ","),
-                    split(animalIds == null ? "" : animalIds.getValue(), ","));
+        } else if (tab == Tab.MOVEMENT && radius != null) {
+            var value = config.snapshot();
+            config.setNavigation(value.targetX(), value.targetY(), value.targetZ(), decimal(radius, 1.5), decimal(rotation, 8));
         }
     }
 
-    @Override public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
-        graphics.fill(0, 0, width, height, 0xF00C1016);
+    private void cycleRoute(int direction) {
+        saveFields();
+        var value = config().snapshot();
+        if (value.routes().isEmpty()) return;
+        int current = 0;
+        for (int i = 0; i < value.routes().size(); i++) if (value.routes().get(i).name().equals(value.activeRoute())) current = i;
+        config().selectRoute(value.routes().get(Math.floorMod(current + direction, value.routes().size())).name());
+        minecraft.setScreen(new AfkFarmScreen(parent, Tab.MOVEMENT));
     }
+
+    private void deleteRoute() {
+        String selected = config().snapshot().activeRoute();
+        if (!selected.isBlank()) config().deleteRoute(selected);
+        minecraft.setScreen(new AfkFarmScreen(parent, Tab.MOVEMENT));
+    }
+
+    @Override public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float delta) { graphics.fill(0, 0, width, height, 0xF00C1016); }
 
     @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
         renderBackground(graphics, mouseX, mouseY, delta);
@@ -160,46 +186,25 @@ public final class AfkFarmScreen extends Screen {
         int left = (width - panelWidth) / 2;
         graphics.fill(left, 5, left + panelWidth, height - 4, 0xD8141B23);
         graphics.fill(left, 5, left + panelWidth, 7, 0xFF20D9FF);
-        super.render(graphics, mouseX, mouseY, delta);
         graphics.drawCenteredString(font, title, width / 2, 9, 0xFFA8F3FF);
-        for (LabeledField value : fields) {
-            graphics.drawString(font, value.label(), value.box().getX(), value.box().getY() - 10, 0xFFB7C3CC, false);
-        }
-        if (tab == Tab.GENERAL) {
-            graphics.drawCenteredString(font, "Cada módulo funciona de forma independiente.", width / 2,
-                    Math.min(height - 42, 172), 0xFF8E9AA5);
-        } else if (tab == Tab.ATTACK) {
-            graphics.drawCenteredString(font, "Solo MineLatino · cooldown real · máximo interno 4 intentos/s",
-                    width / 2, Math.min(height - 42, 188), 0xFFFFC857);
-        }
+        for (LabeledField value : fields)
+            graphics.drawString(font, value.label(), value.box().getX(), value.box().getY() - 9, 0xFFB7C3CC, false);
+        super.render(graphics, mouseX, mouseY, delta);
+        if (tab == Tab.GENERAL)
+            graphics.drawCenteredString(font, "Los módulos y recorridos se guardan por separado.", width / 2, Math.min(height - 42, 165), 0xFF8E9AA5);
+        else if (tab == Tab.ATTACK)
+            graphics.drawCenteredString(font, "Solo MineLatino · mascotas domesticadas y jugadores excluidos", width / 2, Math.min(height - 42, 169), 0xFFFFC857);
     }
 
-    @Override public void onClose() {
-        saveFields();
-        minecraft.setScreen(parent);
-    }
-
+    @Override public void onClose() { saveFields(); minecraft.setScreen(parent); }
     @Override public boolean isPauseScreen() { return false; }
 
     private AfkFarmConfig config() { return AfkFarmConfig.get(minecraft.gameDirectory.toPath()); }
-    private static List<String> split(String value, String separator) {
-        return Arrays.stream(value.split(java.util.regex.Pattern.quote(separator))).map(String::trim).filter(v -> !v.isBlank()).toList();
-    }
-    private static int integer(EditBox box, int fallback) {
-        try { return Integer.parseInt(box.getValue().trim()); } catch (Exception ignored) { return fallback; }
-    }
-    private static double decimal(EditBox box, double fallback) {
-        try { return Double.parseDouble(box.getValue().trim().replace(',', '.')); } catch (Exception ignored) { return fallback; }
-    }
-    private static String number(double value) {
-        return value == Math.rint(value) ? Long.toString(Math.round(value)) : Double.toString(value);
-    }
-    private static String tabName(Tab tab) {
-        return switch (tab) {
-            case GENERAL -> "General";
-            case COMMANDS -> "Comandos";
-            case MOVEMENT -> "Movimiento";
-            case ATTACK -> "Ataque";
-        };
-    }
+    private static List<String> split(String value, String separator) { return Arrays.stream(value.split(java.util.regex.Pattern.quote(separator))).map(String::trim).filter(v -> !v.isBlank()).toList(); }
+    private static int integer(EditBox box, int fallback) { try { return Integer.parseInt(box.getValue().trim()); } catch (Exception ignored) { return fallback; } }
+    private static double decimal(EditBox box, double fallback) { try { return Double.parseDouble(box.getValue().trim().replace(',', '.')); } catch (Exception ignored) { return fallback; } }
+    private static String number(double value) { return value == Math.rint(value) ? Long.toString(Math.round(value)) : Double.toString(value); }
+    private static String toggleLabel(String label, boolean enabled) { return label + ": " + (enabled ? "Activado" : "Desactivado"); }
+    private String trim(String value, int width) { return font.plainSubstrByWidth(value, Math.max(30, width - 12)); }
+    private static String tabName(Tab tab) { return switch (tab) { case GENERAL -> "General"; case COMMANDS -> "Tiempos"; case MOVEMENT -> "Recorrido"; case ATTACK -> "Ataque"; }; }
 }

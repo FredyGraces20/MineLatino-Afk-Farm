@@ -1,7 +1,7 @@
 # Build and optionally publish every supported MineLatino AFK Farm artifact.
 # mods.json is changed only after GitHub confirms that the release exists.
 param(
-    [string]$Version = '0.1.0-alpha.1',
+    [string]$Version = '0.1.0-alpha.2',
     [string[]]$MinecraftVersions = @('1.21.4', '1.21.11'),
     [switch]$SkipBuild,
     [switch]$SkipGithub,
@@ -64,7 +64,7 @@ if (-not $SkipGithub) {
     if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists; refusing to replace an immutable version" }
 
     $releaseArgs = @('release', 'create', $tag, '--repo', $repo, '--title', "MineLatino AFK Farm $tag")
-    $notesFile = Join-Path $repoRoot 'docs\release-alpha.1.md'
+    $notesFile = Join-Path $repoRoot "docs\release-$Version.md"
     if (Test-Path -LiteralPath $notesFile) { $releaseArgs += @('--notes-file', $notesFile) }
     else { $releaseArgs += @('--notes', "AFK Farm $Version for Minecraft $($MinecraftVersions -join ', ')") }
     $releaseArgs += $artifacts.File.FullName

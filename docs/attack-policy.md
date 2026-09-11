@@ -1,6 +1,6 @@
 # Política interna de ataque
 
-Estas constantes están compiladas dentro de `AfkFarmClient` y deliberadamente no forman parte
+Estas constantes están compiladas dentro de `AfkFarmAttackPolicy` y deliberadamente no forman parte
 de `afk-farm.json` ni de la configuración remota:
 
 | Constante | Valor | Función |

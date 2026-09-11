@@ -9,7 +9,7 @@ public final class AfkFarmOverlay {
     public static void render(GuiGraphics graphics) {
         Minecraft minecraft = Minecraft.getInstance();
         AfkFarmClient client = AfkFarmClient.instance();
-        if (!client.active() || minecraft.options.hideGui || minecraft.screen != null) return;
+        if ((!client.active() && !client.recording()) || minecraft.options.hideGui || minecraft.screen != null) return;
         String status = client.status();
         if (status == null || status.isBlank()) return;
         int width = Math.min(graphics.guiWidth() - 12, minecraft.font.width(status) + 20);
@@ -20,4 +20,3 @@ public final class AfkFarmOverlay {
                 graphics.guiWidth() / 2, 13, 0xFFF2F7FA);
     }
 }
-

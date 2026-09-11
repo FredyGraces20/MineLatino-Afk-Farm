@@ -7,17 +7,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Local settings for the AFK workflow. Nothing in this file controls attack frequency. */
 public final class AfkFarmConfig {
     public static final int MAX_COMMANDS = 10;
     public static final int MAX_ALLOWED_ENTITIES = 64;
+    public static final int MAX_ROUTES = 20;
+    public static final int MAX_ROUTE_POINTS = 8192;
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static AfkFarmConfig current;
 
     private static final class Data {
-        int version = 1;
+        int version = 2;
         boolean autoReconnect = false;
         boolean commandsEnabled = false;
         List<String> commands = new ArrayList<>();
@@ -35,7 +39,12 @@ public final class AfkFarmConfig {
         List<String> allowedHostileMobs = new ArrayList<>();
         List<String> allowedAnimals = new ArrayList<>();
         double maxCameraRotationDegreesPerTick = 8.0;
+        String activeRoute = "";
+        List<SavedRoute> routes = new ArrayList<>();
     }
+
+    public record RoutePoint(double x, double y, double z) {}
+    public record SavedRoute(String name, List<RoutePoint> points) {}
 
     public record Snapshot(
             boolean autoReconnect,
@@ -54,7 +63,9 @@ public final class AfkFarmConfig {
             boolean attackAnimals,
             List<String> allowedHostileMobs,
             List<String> allowedAnimals,
-            double maxCameraRotationDegreesPerTick) {}
+            double maxCameraRotationDegreesPerTick,
+            String activeRoute,
+            List<SavedRoute> routes) {}
 
     private final Path path;
     private Data data;
@@ -84,7 +95,8 @@ public final class AfkFarmConfig {
                 data.targetX, data.targetY, data.targetZ, data.arrivalRadius, data.navigationEnabled,
                 data.autoAttackEnabled, data.attackHostileMobs, data.attackAnimals,
                 List.copyOf(data.allowedHostileMobs), List.copyOf(data.allowedAnimals),
-                data.maxCameraRotationDegreesPerTick);
+                data.maxCameraRotationDegreesPerTick, data.activeRoute,
+                data.routes.stream().map(route -> new SavedRoute(route.name(), List.copyOf(route.points()))).toList());
     }
 
     public synchronized void setAutoReconnect(boolean value) { data.autoReconnect = value; save(); }
@@ -121,6 +133,30 @@ public final class AfkFarmConfig {
         save();
     }
 
+    public synchronized void saveRoute(String name, List<RoutePoint> points) {
+        String safeName = sanitizeRouteName(name);
+        List<RoutePoint> safePoints = sanitizePoints(points);
+        if (safePoints.size() < 2) throw new IllegalArgumentException("El recorrido necesita al menos 2 puntos");
+        Map<String, SavedRoute> routes = new LinkedHashMap<>();
+        for (SavedRoute route : data.routes) routes.put(route.name(), route);
+        routes.put(safeName, new SavedRoute(safeName, safePoints));
+        data.routes = routes.values().stream().limit(MAX_ROUTES).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        data.activeRoute = safeName;
+        save();
+    }
+
+    public synchronized void selectRoute(String name) {
+        String safeName = name == null ? "" : name.trim();
+        data.activeRoute = data.routes.stream().anyMatch(route -> route.name().equals(safeName)) ? safeName : "";
+        save();
+    }
+
+    public synchronized void deleteRoute(String name) {
+        data.routes.removeIf(route -> route.name().equals(name));
+        if (data.activeRoute.equals(name)) data.activeRoute = data.routes.isEmpty() ? "" : data.routes.getFirst().name();
+        save();
+    }
+
     public synchronized void save() {
         try {
             Files.createDirectories(path.getParent());
@@ -135,6 +171,7 @@ public final class AfkFarmConfig {
     }
 
     private static Data normalize(Data value) {
+        value.version = 2;
         value.postJoinDelaySeconds = clamp(value.postJoinDelaySeconds, 0, 300);
         value.betweenCommandsDelaySeconds = clamp(value.betweenCommandsDelaySeconds, 0, 60);
         value.movementStartDelaySeconds = clamp(value.movementStartDelaySeconds, 0, 300);
@@ -146,7 +183,53 @@ public final class AfkFarmConfig {
         value.commands = sanitizeCommands(value.commands);
         value.allowedHostileMobs = sanitizeIds(value.allowedHostileMobs);
         value.allowedAnimals = sanitizeIds(value.allowedAnimals);
+        value.routes = sanitizeRoutes(value.routes);
+        if (value.activeRoute == null || value.routes.stream().noneMatch(route -> route.name().equals(value.activeRoute)))
+            value.activeRoute = value.routes.isEmpty() ? "" : value.routes.getFirst().name();
         return value;
+    }
+
+    private static ArrayList<SavedRoute> sanitizeRoutes(List<SavedRoute> values) {
+        Map<String, SavedRoute> unique = new LinkedHashMap<>();
+        if (values != null) for (SavedRoute route : values) {
+            if (route == null) continue;
+            try {
+                String name = sanitizeRouteName(route.name());
+                List<RoutePoint> points = sanitizePoints(route.points());
+                if (points.size() >= 2) unique.put(name, new SavedRoute(name, points));
+            } catch (IllegalArgumentException ignored) {}
+            if (unique.size() >= MAX_ROUTES) break;
+        }
+        return new ArrayList<>(unique.values());
+    }
+
+    private static String sanitizeRouteName(String value) {
+        String name = value == null ? "" : value.trim().replaceAll("\\s+", " ");
+        if (name.isBlank()) name = "Recorrido";
+        if (name.length() > 48) name = name.substring(0, 48).trim();
+        return name;
+    }
+
+    private static List<RoutePoint> sanitizePoints(List<RoutePoint> values) {
+        if (values == null) return List.of();
+        ArrayList<RoutePoint> result = new ArrayList<>();
+        for (RoutePoint point : values) {
+            if (point == null || !validWorldCoordinate(point.x()) || !Double.isFinite(point.y()) || !validWorldCoordinate(point.z())) continue;
+            double y = clamp(point.y(), -2048, 2048);
+            RoutePoint safe = new RoutePoint(point.x(), y, point.z());
+            if (result.isEmpty() || distanceSquared(result.getLast(), safe) >= 0.0025) result.add(safe);
+            if (result.size() >= MAX_ROUTE_POINTS) break;
+        }
+        return List.copyOf(result);
+    }
+
+    private static boolean validWorldCoordinate(double value) {
+        return Double.isFinite(value) && Math.abs(value) <= 30_000_000;
+    }
+
+    private static double distanceSquared(RoutePoint a, RoutePoint b) {
+        double x = a.x() - b.x(), y = a.y() - b.y(), z = a.z() - b.z();
+        return x * x + y * y + z * z;
     }
 
     private static List<String> sanitizeCommands(List<String> values) {
@@ -177,4 +260,3 @@ public final class AfkFarmConfig {
         return Double.isFinite(value) ? value : fallback;
     }
 }
-

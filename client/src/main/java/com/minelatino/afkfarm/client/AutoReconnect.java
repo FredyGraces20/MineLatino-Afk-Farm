@@ -73,6 +73,7 @@ public final class AutoReconnect {
 
     private static void cancel() {
         cancelled = true;
+        AfkFarmClient.instance().cancel("Reconexión y flujo AFK cancelados por el usuario");
         if (statusWidget != null) statusWidget.setMessage(Component.literal("Reconexión cancelada"));
     }
 

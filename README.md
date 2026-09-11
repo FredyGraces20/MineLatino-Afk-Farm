@@ -17,9 +17,14 @@ Requiere Java 21. Todos los módulos vienen desactivados por defecto.
 
 1. Espera a que mundo, jugador y conexión estén listos durante 20 ticks consecutivos.
 2. Aplica la espera posterior a la conexión y ejecuta hasta 10 comandos configurados.
-3. Espera el intervalo de movimiento y gira gradualmente hacia el destino.
-4. Camina hasta entrar en el radio de llegada.
-5. Si el ataque está habilitado, busca únicamente entidades incluidas en las listas locales.
+3. Conserva el estado pendiente si un `/warp` cambia al jugador de host y espera a que el
+   nuevo mundo vuelva a estar listo.
+4. Espera el intervalo de movimiento y reproduce el recorrido grabado punto por punto,
+   incluyendo saltos y cambios de altura.
+5. Al terminar, busca únicamente mobs o animales seleccionados desde la lista visual.
+
+Los recorridos se graban caminando desde la pestaña **Recorrido**, pueden guardarse con nombre,
+reutilizarse y eliminarse. La versión 2 del JSON migra automáticamente configuraciones anteriores.
 
 Abrir otra pantalla, usar las teclas de movimiento o cancelar desde el menú detiene la
 secuencia y libera las teclas simuladas.
@@ -29,13 +34,21 @@ secuencia y libera las teclas simuladas.
 El ataque solo puede activarse en `play.minelatino.com`. Además exige simultáneamente:
 
 - módulo de ataque habilitado;
-- categoría e identificador de entidad permitidos;
+- categoría e identificador elegidos en el selector visual;
 - objetivo vivo, cercano y con línea de visión;
+- nunca jugadores ni mascotas domesticadas;
 - fuerza de ataque real `>= 0.95`;
 - intervalo interno mínimo de 5 ticks (máximo 4 intentos por segundo).
 
 La frecuencia no existe en la interfaz, el JSON ni el backend. Solo puede cambiarse publicando
 una nueva compilación oficial. Consulta [docs/attack-policy.md](docs/attack-policy.md).
+
+## Prueba de tiempos web
+
+El panel administrativo incluye **Launcher → AFK Farm**. Allí se pueden validar hasta 10
+comandos y simular en tiempo real las esperas posterior a la conexión, entre comandos y antes
+del recorrido. Es un simulador seguro: no ejecuta comandos ni sobrescribe configuraciones de
+jugadores conectados.
 
 ## Compilar
 
