@@ -1,0 +1,21 @@
+modLoader="javafml"
+loaderVersion="[${forgeVersion},)"
+license="All Rights Reserved"
+clientSideOnly=true
+[[mods]]
+modId="minelatino_afk_farm"
+version="${version}"
+displayName="MineLatino AFK Farm"
+description='''Reconexión y flujo AFK autorizado para MineLatino.'''
+[[dependencies.minelatino_afk_farm]]
+modId="forge"
+mandatory=true
+versionRange="[${forgeVersion},)"
+ordering="NONE"
+side="CLIENT"
+[[dependencies.minelatino_afk_farm]]
+modId="minecraft"
+mandatory=true
+versionRange="[${mcVersion}]"
+ordering="NONE"
+side="CLIENT"

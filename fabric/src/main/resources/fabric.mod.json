@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "minelatino_afk_farm",
+  "version": "${version}",
+  "name": "MineLatino AFK Farm",
+  "description": "Reconexión y flujo AFK autorizado para MineLatino.",
+  "environment": "client",
+  "license": "All Rights Reserved",
+  "mixins": ["minelatino_afk_farm.mixins.json"],
+  "depends": { "fabricloader": ">=${fabricLoader}", "minecraft": "${mcVersion}", "java": ">=21" }
+}
+

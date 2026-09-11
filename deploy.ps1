@@ -1,0 +1,106 @@
+# Build and optionally publish every supported MineLatino AFK Farm artifact.
+# mods.json is changed only after GitHub confirms that the release exists.
+param(
+    [string]$Version = '0.1.0-alpha.1',
+    [string[]]$MinecraftVersions = @('1.21.4', '1.21.11'),
+    [switch]$SkipBuild,
+    [switch]$SkipGithub,
+    [string]$LocalInstanceMods = ''
+)
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = $PSScriptRoot
+$repo = 'FredyGraces20/MineLatino-Afk-Farm'
+$tag = "v$Version"
+$javaHome = 'C:\Users\fredy\AppData\Roaming\.minecraft\runtime\java-runtime-delta\windows\java-runtime-delta'
+
+if (-not (Test-Path -LiteralPath (Join-Path $javaHome 'bin\java.exe'))) {
+    throw "Java 21 was not found at $javaHome"
+}
+$env:JAVA_HOME = $javaHome
+$env:Path = "$(Join-Path $javaHome 'bin');$env:Path"
+$externalBuildRoot = $env:MINELATINO_AFK_BUILD_ROOT
+
+$artifacts = @()
+if (-not $SkipBuild) {
+    Write-Host 'Running configuration tests' -ForegroundColor Cyan
+    & (Join-Path $repoRoot 'gradlew.bat') ':common:test' '-PmcVersion=1.21.4' '--no-daemon'
+    if ($LASTEXITCODE -ne 0) { throw 'Configuration tests failed' }
+}
+foreach ($mcVersion in $MinecraftVersions) {
+    if (-not $SkipBuild) {
+        Write-Host "Building Fabric $mcVersion" -ForegroundColor Cyan
+        & (Join-Path $repoRoot 'gradlew.bat') ':fabric:build' "-PmcVersion=$mcVersion" '--no-daemon'
+        if ($LASTEXITCODE -ne 0) { throw "Fabric $mcVersion build failed" }
+
+        Write-Host "Building Forge $mcVersion" -ForegroundColor Cyan
+        & (Join-Path $repoRoot 'forge\gradlew.bat') '-p' (Join-Path $repoRoot 'forge') 'build' "-PmcVersion=$mcVersion" '--no-daemon'
+        if ($LASTEXITCODE -ne 0) { throw "Forge $mcVersion build failed" }
+    }
+
+    foreach ($loader in @('fabric', 'forge')) {
+        $jarName = "minelatino-afk-farm-$loader-$mcVersion-$Version.jar"
+        $jarPath = if ($loader -eq 'fabric') {
+            if ($externalBuildRoot) { Join-Path $externalBuildRoot "$mcVersion\fabric\libs\$jarName" }
+            else { Join-Path $repoRoot "build\$mcVersion\fabric\libs\$jarName" }
+        } else {
+            if ($externalBuildRoot) { Join-Path $externalBuildRoot "$mcVersion\forge\libs\$jarName" }
+            else { Join-Path $repoRoot "forge\build\$mcVersion\libs\$jarName" }
+        }
+        if (-not (Test-Path -LiteralPath $jarPath -PathType Leaf)) { throw "Artifact not found: $jarPath" }
+        $file = Get-Item -LiteralPath $jarPath
+        $artifacts += [pscustomobject]@{
+            MinecraftVersion = $mcVersion
+            Loader = $loader
+            File = $file
+            Sha1 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA1).Hash.ToLowerInvariant()
+        }
+        Write-Host "$loader ${mcVersion}: $($file.Name) ($($file.Length) bytes)" -ForegroundColor Green
+    }
+}
+
+if (-not $SkipGithub) {
+    gh release view $tag --repo $repo *> $null
+    if ($LASTEXITCODE -eq 0) { throw "Release $tag already exists; refusing to replace an immutable version" }
+
+    $releaseArgs = @('release', 'create', $tag, '--repo', $repo, '--title', "MineLatino AFK Farm $tag")
+    $notesFile = Join-Path $repoRoot 'docs\release-alpha.1.md'
+    if (Test-Path -LiteralPath $notesFile) { $releaseArgs += @('--notes-file', $notesFile) }
+    else { $releaseArgs += @('--notes', "AFK Farm $Version for Minecraft $($MinecraftVersions -join ', ')") }
+    $releaseArgs += $artifacts.File.FullName
+    gh @releaseArgs
+    if ($LASTEXITCODE -ne 0) { throw 'GitHub release failed; mods.json was not changed' }
+
+    $versions = foreach ($artifact in $artifacts) {
+        @{
+            modVersion = $Version
+            minecraftVersions = @($artifact.MinecraftVersion)
+            loader = $artifact.Loader
+            downloadUrl = "https://github.com/$repo/releases/download/$tag/$($artifact.File.Name)"
+            sha1 = $artifact.Sha1
+            fileName = $artifact.File.Name
+            fileSize = $artifact.File.Length
+        }
+    }
+    $manifest = @(@{ id = 'minelatino-afk-farm'; name = 'MineLatino AFK Farm'; versions = @($versions) })
+    ConvertTo-Json -InputObject $manifest -Depth 6 |
+        Set-Content -LiteralPath (Join-Path $repoRoot 'mods.json') -Encoding utf8
+    Write-Host 'Release published and mods.json generated.' -ForegroundColor Green
+}
+
+if ($LocalInstanceMods) {
+    $modsDir = (Resolve-Path -LiteralPath $LocalInstanceMods).Path
+    $candidate = $artifacts | Where-Object { $_.Loader -eq 'fabric' } | Select-Object -First 1
+    if (-not $candidate) { throw 'No Fabric artifact is available for local installation' }
+
+    $pending = Join-Path $modsDir ($candidate.File.Name + '.pending')
+    Copy-Item -LiteralPath $candidate.File.FullName -Destination $pending -Force
+    $pendingSha1 = (Get-FileHash -LiteralPath $pending -Algorithm SHA1).Hash.ToLowerInvariant()
+    if ($pendingSha1 -ne $candidate.Sha1) { throw 'Pending JAR failed SHA-1 verification; old mods were preserved' }
+    $destination = Join-Path $modsDir $candidate.File.Name
+    Move-Item -LiteralPath $pending -Destination $destination -Force
+    Get-ChildItem -LiteralPath $modsDir -File -Filter 'minelatino-afk-farm-*.jar' |
+        Where-Object { $_.FullName -ne $destination } |
+        Remove-Item -Force
+    Write-Host "Installed $($candidate.File.Name); older JARs were removed afterwards." -ForegroundColor Green
+}
