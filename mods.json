@@ -1,0 +1,52 @@
+[
+  {
+    "versions": [
+      {
+        "minecraftVersions": [
+          "1.21.4"
+        ],
+        "sha1": "cc6e99f56ddb809996f3c261e12eb55bb0700dfc",
+        "fileName": "minelatino-afk-farm-fabric-1.21.4-0.1.0-alpha.1.jar",
+        "modVersion": "0.1.0-alpha.1",
+        "loader": "fabric",
+        "fileSize": 35731,
+        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.1/minelatino-afk-farm-fabric-1.21.4-0.1.0-alpha.1.jar"
+      },
+      {
+        "minecraftVersions": [
+          "1.21.4"
+        ],
+        "sha1": "28fa1ff3788ca8c0829229859d1b526ff0f6f184",
+        "fileName": "minelatino-afk-farm-forge-1.21.4-0.1.0-alpha.1.jar",
+        "modVersion": "0.1.0-alpha.1",
+        "loader": "forge",
+        "fileSize": 37998,
+        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.1/minelatino-afk-farm-forge-1.21.4-0.1.0-alpha.1.jar"
+      },
+      {
+        "minecraftVersions": [
+          "1.21.11"
+        ],
+        "sha1": "0b39c4dfb845679b655eefdabcf9980b73d16e7e",
+        "fileName": "minelatino-afk-farm-fabric-1.21.11-0.1.0-alpha.1.jar",
+        "modVersion": "0.1.0-alpha.1",
+        "loader": "fabric",
+        "fileSize": 35735,
+        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.1/minelatino-afk-farm-fabric-1.21.11-0.1.0-alpha.1.jar"
+      },
+      {
+        "minecraftVersions": [
+          "1.21.11"
+        ],
+        "sha1": "5fd954fd29ece56f72ceda61b3b3225efddada5c",
+        "fileName": "minelatino-afk-farm-forge-1.21.11-0.1.0-alpha.1.jar",
+        "modVersion": "0.1.0-alpha.1",
+        "loader": "forge",
+        "fileSize": 37939,
+        "downloadUrl": "https://github.com/FredyGraces20/MineLatino-Afk-Farm/releases/download/v0.1.0-alpha.1/minelatino-afk-farm-forge-1.21.11-0.1.0-alpha.1.jar"
+      }
+    ],
+    "name": "MineLatino AFK Farm",
+    "id": "minelatino-afk-farm"
+  }
+]
