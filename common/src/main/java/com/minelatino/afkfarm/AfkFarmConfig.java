@@ -21,7 +21,7 @@ public final class AfkFarmConfig {
     private static AfkFarmConfig current;
 
     private static final class Data {
-        int version = 3;
+        int version = 4;
         boolean autoReconnect = false;
         boolean commandsEnabled = false;
         List<String> commands = new ArrayList<>();
@@ -174,7 +174,13 @@ public final class AfkFarmConfig {
     }
 
     private static Data normalize(Data value) {
-        value.version = 3;
+        // alpha.7 introduced the conservative disguise detector behind a new
+        // disabled flag. Existing farms therefore detected the entity but
+        // silently refused to attack it. Migrate only profiles that had already
+        // opted into both automatic and hostile-mob attacks.
+        if (value.version < 4 && value.autoAttackEnabled && value.attackHostileMobs)
+            value.attackArtificialPlayers = true;
+        value.version = 4;
         value.postJoinDelaySeconds = clamp(value.postJoinDelaySeconds, 0, 300);
         value.betweenCommandsDelaySeconds = clamp(value.betweenCommandsDelaySeconds, 0, 60);
         value.movementStartDelaySeconds = clamp(value.movementStartDelaySeconds, 0, 300);

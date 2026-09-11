@@ -33,6 +33,15 @@ final class AfkFarmConfigTest {
         assertTrue(config.snapshot().attackArtificialPlayers());
     }
 
+    @Test void migratesExistingHostileFarmsToAttackConfirmedDisguises() throws Exception {
+        Path game = directory.resolve("migration");
+        Path file = game.resolve("config/minelatino-afk-farm/afk-farm.json");
+        Files.createDirectories(file.getParent());
+        Files.writeString(file, "{\"version\":3,\"autoAttackEnabled\":true,\"attackHostileMobs\":true,"
+                + "\"attackArtificialPlayers\":false}");
+        assertTrue(AfkFarmConfig.get(game).snapshot().attackArtificialPlayers());
+    }
+
     @Test void clampsDelaysCommandsAndAttackLists() {
         var config = AfkFarmConfig.get(directory.resolve("clamps"));
         config.setDelays(-1, 90, 999);

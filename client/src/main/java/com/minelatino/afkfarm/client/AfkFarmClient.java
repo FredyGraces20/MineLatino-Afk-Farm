@@ -402,15 +402,15 @@ public final class AfkFarmClient {
                 .thenComparingDouble(minecraft.player::distanceToSqr)).orElse(null);
         if (entity == null) return "Sin entidades vivas en 12 bloques";
         double blocks = Math.sqrt(minecraft.player.distanceToSqr(entity));
+        if (blocks > ATTACK_SEARCH_RADIUS)
+            return String.format(Locale.ROOT, "Entidad a %.1f bloques · alcance de búsqueda %.1f", blocks, ATTACK_SEARCH_RADIUS);
+        if (!minecraft.player.hasLineOfSight(entity)) return "Entidad detectada sin línea de visión";
         if (entity instanceof Player player) {
             if (!config.attackArtificialPlayers())
                 return String.format(Locale.ROOT, "Entidad con apariencia de jugador a %.1f bloques · activa disguises", blocks);
             return artificialPlayers.diagnostic(player);
         }
         String id = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
-        if (blocks > ATTACK_SEARCH_RADIUS)
-            return String.format(Locale.ROOT, "%s está a %.1f bloques · alcance de búsqueda %.1f", id, blocks, ATTACK_SEARCH_RADIUS);
-        if (!minecraft.player.hasLineOfSight(entity)) return id + " sin línea de visión";
         if (entity instanceof Enemy && !config.attackHostileMobs()) return "Activa mobs hostiles para " + id;
         if (entity instanceof Enemy && !AfkFarmAttackPolicy.allowsId(true, config.allowedHostileMobs(), id))
             return id + " no está seleccionado";
