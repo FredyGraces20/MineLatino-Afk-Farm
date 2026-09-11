@@ -94,7 +94,6 @@ public final class AfkFarmClient {
 
     public boolean startRecording(String name) {
         Minecraft minecraft = Minecraft.getInstance();
-        AiAssistantKeybind.handleTick(minecraft);
         if (!worldReady(minecraft)) { status = "Entra a un servidor antes de grabar"; return false; }
         cancel(null);
         recording = true;
@@ -135,6 +134,10 @@ public final class AfkFarmClient {
     public void tick() {
         ticks++;
         Minecraft minecraft = Minecraft.getInstance();
+        // Key presses must be consumed every client tick. Keeping this here makes
+        // Fabric's Minecraft mixin and Forge's client tick event share the exact
+        // same behaviour and also lets the configured key close an open assistant.
+        AiAssistantKeybind.handleTick(minecraft);
         AfkUsageController.instance().tick(active);
         AutoReconnect.tick();
         AutoReconnect.remember(minecraft.getCurrentServer());

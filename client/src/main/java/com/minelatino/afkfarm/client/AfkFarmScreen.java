@@ -21,6 +21,7 @@ public final class AfkFarmScreen extends Screen {
     private EditBox commands, postJoin, betweenCommands, movementDelay;
     private EditBox radius, rotation, routeName;
     private Button flowButton;
+    private int generalActionsY;
 
     public AfkFarmScreen(Screen parent) { this(parent, Tab.GENERAL); }
     private AfkFarmScreen(Screen parent, Tab tab) {
@@ -60,16 +61,15 @@ public final class AfkFarmScreen extends Screen {
         addToggle(left, y, width, "Módulo de recorrido", value.navigationEnabled(), config::setNavigationEnabled); y += 24;
         addToggle(left, y, width, "Módulo de ataque", value.autoAttackEnabled(), config::setAutoAttackEnabled); y += 29;
         boolean active = AfkFarmClient.instance().active();
-        int gap = 4, assistantWidth = Math.max(90, (width - gap) / 2);
-        addRenderableWidget(Button.builder(Component.literal("Asistente IA"), button ->
-                minecraft.setScreen(new AiAssistantScreen(this)))
-                .bounds(left, Math.min(y, height - 52), assistantWidth, 20).build());
+        // The assistant belongs to the pause menu; this screen is exclusively
+        // for AFK Farm configuration and control.
+        generalActionsY = Math.min(y, height - 76);
         flowButton = addRenderableWidget(Button.builder(Component.literal(active ? "Detener flujo AFK" : "Iniciar flujo AFK"), button -> {
             saveFields();
             if (active) AfkFarmClient.instance().cancel("Flujo cancelado por el usuario");
             else AfkFarmClient.instance().start();
             minecraft.setScreen(null);
-        }).bounds(left + assistantWidth + gap, Math.min(y, height - 52), width - assistantWidth - gap, 20).build());
+        }).bounds(left, generalActionsY, width, 20).build());
         flowButton.active = active;
     }
 
@@ -204,8 +204,10 @@ public final class AfkFarmScreen extends Screen {
             if (flowButton != null && !AfkFarmClient.instance().active()) flowButton.active = usage.canStart();
             String balance = seconds < 0 ? usage.message() : "Tiempo AFK disponible: " + formatDuration(seconds);
             int color = seconds == 0 ? 0xFFFF7676 : seconds < 0 ? 0xFFFFC857 : 0xFF62E8C6;
-            graphics.drawCenteredString(font, balance, width / 2, Math.min(height - 68, 172), color);
-            graphics.drawCenteredString(font, "Los módulos y recorridos se guardan por separado.", width / 2, Math.min(height - 42, 184), 0xFF8E9AA5);
+            int balanceY = Math.min(height - 49, generalActionsY + 26);
+            graphics.drawCenteredString(font, balance, width / 2, balanceY, color);
+            if (balanceY + 12 < height - 28)
+                graphics.drawCenteredString(font, "Los módulos y recorridos se guardan por separado.", width / 2, balanceY + 12, 0xFF8E9AA5);
         }
         else if (tab == Tab.ATTACK)
             graphics.drawCenteredString(font, "Solo MineLatino · mascotas domesticadas y jugadores excluidos", width / 2, Math.min(height - 42, 169), 0xFFFFC857);
