@@ -22,6 +22,7 @@ public final class AfkFarmScreen extends Screen {
     private EditBox radius, rotation, routeName;
     private Button flowButton;
     private int generalActionsY;
+    private int attackInfoY;
 
     public AfkFarmScreen(Screen parent) { this(parent, Tab.GENERAL); }
     private AfkFarmScreen(Screen parent, Tab tab) {
@@ -119,15 +120,21 @@ public final class AfkFarmScreen extends Screen {
 
     private void initAttack(int left, int width) {
         var value = config().snapshot();
-        int y = 55;
-        addAttackToggle(left, y, width, "Atacar mobs hostiles", value.attackHostileMobs(), true); y += 24;
+        boolean compact = height < 240;
+        int controlGap = compact ? 21 : 24;
+        int sectionGap = compact ? 23 : 29;
+        int y = compact ? 44 : 55;
+        addAttackToggle(left, y, width, "Atacar mobs hostiles", value.attackHostileMobs(), true); y += controlGap;
         addRenderableWidget(Button.builder(Component.literal(trim("Elegir mobs · " + value.allowedHostileMobs().size() + " seleccionados", width)),
                 button -> minecraft.setScreen(new EntitySelectionScreen(this, EntitySelectionScreen.Category.HOSTILE)))
-                .bounds(left, y, width, 20).build()); y += 29;
-        addAttackToggle(left, y, width, "Atacar animales", value.attackAnimals(), false); y += 24;
+                .bounds(left, y, width, 20).build()); y += sectionGap;
+        addAttackToggle(left, y, width, "Atacar animales", value.attackAnimals(), false); y += controlGap;
         addRenderableWidget(Button.builder(Component.literal(trim("Elegir animales · " + value.allowedAnimals().size() + " seleccionados", width)),
                 button -> minecraft.setScreen(new EntitySelectionScreen(this, EntitySelectionScreen.Category.ANIMAL)))
-                .bounds(left, y, width, 20).build());
+                .bounds(left, y, width, 20).build()); y += sectionGap;
+        addToggle(left, y, width, "Atacar disguises artificiales", value.attackArtificialPlayers(),
+                config()::setAttackArtificialPlayers);
+        attackInfoY = y + 25;
     }
 
     private void addToggle(int x, int y, int width, String label, boolean enabled, java.util.function.Consumer<Boolean> setter) {
@@ -209,8 +216,12 @@ public final class AfkFarmScreen extends Screen {
             if (balanceY + 12 < height - 28)
                 graphics.drawCenteredString(font, "Los módulos y recorridos se guardan por separado.", width / 2, balanceY + 12, 0xFF8E9AA5);
         }
-        else if (tab == Tab.ATTACK)
-            graphics.drawCenteredString(font, "Solo MineLatino · mascotas domesticadas y jugadores excluidos", width / 2, Math.min(height - 42, 169), 0xFFFFC857);
+        else if (tab == Tab.ATTACK && attackInfoY + 10 < height - 28) {
+            graphics.drawCenteredString(font, "Detección conservadora · nombres y skins no se utilizan", width / 2,
+                    attackInfoY, 0xFFFFC857);
+            graphics.drawCenteredString(font, "Jugadores y entidades ambiguas siempre quedan excluidos", width / 2,
+                    attackInfoY + 11, 0xFF8E9AA5);
+        }
     }
 
     @Override public void onClose() { saveFields(); minecraft.setScreen(parent); }

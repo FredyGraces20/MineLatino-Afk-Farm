@@ -41,6 +41,7 @@ public final class AfkFarmClient {
     private boolean recording;
     private String recordingName = "";
     private final List<AfkFarmConfig.RoutePoint> recordedPoints = new ArrayList<>();
+    private final ArtificialPlayerTracker artificialPlayers = new ArtificialPlayerTracker();
     private long lastRecordedTick;
     private int readyTicks;
     private Object observedLevel;
@@ -134,6 +135,7 @@ public final class AfkFarmClient {
     public void tick() {
         ticks++;
         Minecraft minecraft = Minecraft.getInstance();
+        artificialPlayers.tick(minecraft);
         // Key presses must be consumed every client tick. Keeping this here makes
         // Fabric's Minecraft mixin and Forge's client tick event share the exact
         // same behaviour and also lets the configured key close an open assistant.
@@ -355,7 +357,8 @@ public final class AfkFarmClient {
             return;
         }
         rotateToward(minecraft, target, (float)config.maxCameraRotationDegreesPerTick());
-        status = "Objetivo: " + BuiltInRegistries.ENTITY_TYPE.getKey(target.getType());
+        status = target instanceof Player ? "Objetivo: disguise artificial"
+                : "Objetivo: " + BuiltInRegistries.ENTITY_TYPE.getKey(target.getType());
         double attackRange = minecraft.player.entityInteractionRange();
         if (minecraft.player.distanceToSqr(target) > attackRange * attackRange) {
             status = "Objetivo permitido fuera del alcance real";
@@ -379,6 +382,8 @@ public final class AfkFarmClient {
     }
 
     private boolean allowed(LivingEntity entity, AfkFarmConfig.Snapshot config) {
+        if (entity instanceof Player player)
+            return config.attackArtificialPlayers() && artificialPlayers.isArtificial(player);
         String id = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
         if (entity instanceof Enemy) return AfkFarmAttackPolicy.allowsId(
                 config.attackHostileMobs(), config.allowedHostileMobs(), id);
@@ -397,8 +402,11 @@ public final class AfkFarmClient {
                 .thenComparingDouble(minecraft.player::distanceToSqr)).orElse(null);
         if (entity == null) return "Sin entidades vivas en 12 bloques";
         double blocks = Math.sqrt(minecraft.player.distanceToSqr(entity));
-        if (entity instanceof Player)
-            return String.format(Locale.ROOT, "Entidad vista como jugador a %.1f bloques · usuarios/disguises excluidos", blocks);
+        if (entity instanceof Player player) {
+            if (!config.attackArtificialPlayers())
+                return String.format(Locale.ROOT, "Entidad con apariencia de jugador a %.1f bloques · activa disguises", blocks);
+            return artificialPlayers.diagnostic(player);
+        }
         String id = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
         if (blocks > ATTACK_SEARCH_RADIUS)
             return String.format(Locale.ROOT, "%s está a %.1f bloques · alcance de búsqueda %.1f", id, blocks, ATTACK_SEARCH_RADIUS);

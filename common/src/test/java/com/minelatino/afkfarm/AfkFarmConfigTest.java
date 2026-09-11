@@ -20,9 +20,17 @@ final class AfkFarmConfigTest {
         assertFalse(value.commandsEnabled());
         assertFalse(value.navigationEnabled());
         assertFalse(value.autoAttackEnabled());
+        assertFalse(value.attackArtificialPlayers());
         assertTrue(value.commands().isEmpty());
         assertTrue(value.activeRoute().isBlank());
         assertTrue(value.routes().isEmpty());
+    }
+
+    @Test void artificialPlayerAttackRequiresExplicitOptIn() {
+        var config = AfkFarmConfig.get(directory.resolve("artificial"));
+        assertFalse(config.snapshot().attackArtificialPlayers());
+        config.setAttackArtificialPlayers(true);
+        assertTrue(config.snapshot().attackArtificialPlayers());
     }
 
     @Test void clampsDelaysCommandsAndAttackLists() {

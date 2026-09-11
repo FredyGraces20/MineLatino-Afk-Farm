@@ -21,7 +21,7 @@ public final class AfkFarmConfig {
     private static AfkFarmConfig current;
 
     private static final class Data {
-        int version = 2;
+        int version = 3;
         boolean autoReconnect = false;
         boolean commandsEnabled = false;
         List<String> commands = new ArrayList<>();
@@ -36,6 +36,7 @@ public final class AfkFarmConfig {
         boolean autoAttackEnabled = false;
         boolean attackHostileMobs = false;
         boolean attackAnimals = false;
+        boolean attackArtificialPlayers = false;
         List<String> allowedHostileMobs = new ArrayList<>();
         List<String> allowedAnimals = new ArrayList<>();
         double maxCameraRotationDegreesPerTick = 8.0;
@@ -61,6 +62,7 @@ public final class AfkFarmConfig {
             boolean autoAttackEnabled,
             boolean attackHostileMobs,
             boolean attackAnimals,
+            boolean attackArtificialPlayers,
             List<String> allowedHostileMobs,
             List<String> allowedAnimals,
             double maxCameraRotationDegreesPerTick,
@@ -93,7 +95,7 @@ public final class AfkFarmConfig {
         return new Snapshot(data.autoReconnect, data.commandsEnabled, List.copyOf(data.commands),
                 data.postJoinDelaySeconds, data.betweenCommandsDelaySeconds, data.movementStartDelaySeconds,
                 data.targetX, data.targetY, data.targetZ, data.arrivalRadius, data.navigationEnabled,
-                data.autoAttackEnabled, data.attackHostileMobs, data.attackAnimals,
+                data.autoAttackEnabled, data.attackHostileMobs, data.attackAnimals, data.attackArtificialPlayers,
                 List.copyOf(data.allowedHostileMobs), List.copyOf(data.allowedAnimals),
                 data.maxCameraRotationDegreesPerTick, data.activeRoute,
                 data.routes.stream().map(route -> new SavedRoute(route.name(), List.copyOf(route.points()))).toList());
@@ -105,6 +107,7 @@ public final class AfkFarmConfig {
     public synchronized void setAutoAttackEnabled(boolean value) { data.autoAttackEnabled = value; save(); }
     public synchronized void setAttackHostileMobs(boolean value) { data.attackHostileMobs = value; save(); }
     public synchronized void setAttackAnimals(boolean value) { data.attackAnimals = value; save(); }
+    public synchronized void setAttackArtificialPlayers(boolean value) { data.attackArtificialPlayers = value; save(); }
 
     public synchronized void setCommands(List<String> commands) {
         data.commands = sanitizeCommands(commands);
@@ -171,7 +174,7 @@ public final class AfkFarmConfig {
     }
 
     private static Data normalize(Data value) {
-        value.version = 2;
+        value.version = 3;
         value.postJoinDelaySeconds = clamp(value.postJoinDelaySeconds, 0, 300);
         value.betweenCommandsDelaySeconds = clamp(value.betweenCommandsDelaySeconds, 0, 60);
         value.movementStartDelaySeconds = clamp(value.movementStartDelaySeconds, 0, 300);
