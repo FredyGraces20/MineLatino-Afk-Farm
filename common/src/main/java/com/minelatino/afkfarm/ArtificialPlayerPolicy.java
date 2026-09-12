@@ -7,8 +7,12 @@ package com.minelatino.afkfarm;
 public final class ArtificialPlayerPolicy {
     /** Five seconds in the player list is enough to permanently classify the entity as a real player. */
     public static final int REAL_PROFILE_TICKS = 100;
-    /** The entity must remain after PlayerInfo removal for three seconds before it is considered artificial. */
-    public static final int REMOVED_PROFILE_TICKS = 60;
+    /**
+     * One second is long enough to absorb normal packet ordering while keeping artificial
+     * player detection responsive. A profile that stayed for five seconds is still permanently
+     * protected by {@link #REAL_PROFILE_TICKS}.
+     */
+    public static final int REMOVED_PROFILE_TICKS = 20;
 
     public enum Verdict { UNKNOWN, REAL_PLAYER, ARTIFICIAL_ENTITY }
 

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.util.Mth;
@@ -52,6 +53,8 @@ public final class AfkFarmClient {
     private long ticks;
     private long deadline;
     private long lastAttackTick = Long.MIN_VALUE / 2;
+    private int lockedTargetId = -1;
+    private UUID lockedTargetUuid;
     private int commandIndex;
     private int routeIndex;
     private boolean routeInitialized;
@@ -89,6 +92,7 @@ public final class AfkFarmClient {
         sequenceStarted = false;
         suspendedState = null;
         readyTicks = 0;
+        clearLockedTarget();
         observedLevel = Minecraft.getInstance().level;
         status = "Esperando que el mundo termine de cargar";
     }
@@ -129,6 +133,7 @@ public final class AfkFarmClient {
         state = State.IDLE;
         sequenceStarted = false;
         suspendedState = null;
+        clearLockedTarget();
         status = reason == null ? "" : reason;
     }
 
@@ -153,6 +158,7 @@ public final class AfkFarmClient {
         }
 
         if (minecraft.level != observedLevel) {
+            clearLockedTarget();
             if (active && sequenceStarted && state != State.WAITING_WORLD) suspendForTransfer();
             observedLevel = minecraft.level;
             readyTicks = 0;
@@ -327,6 +333,7 @@ public final class AfkFarmClient {
     }
 
     private void beginAttackOrComplete(AfkFarmConfig.Snapshot config) {
+        clearLockedTarget();
         if (!config.autoAttackEnabled()) {
             state = State.COMPLETE;
             active = false;
@@ -357,28 +364,71 @@ public final class AfkFarmClient {
             return;
         }
         rotateToward(minecraft, target, (float)config.maxCameraRotationDegreesPerTick());
-        status = target instanceof Player ? "Objetivo: disguise artificial"
-                : "Objetivo: " + BuiltInRegistries.ENTITY_TYPE.getKey(target.getType());
+        String targetName = target instanceof Player ? "disguise artificial"
+                : BuiltInRegistries.ENTITY_TYPE.getKey(target.getType()).toString();
         double attackRange = minecraft.player.entityInteractionRange();
-        if (minecraft.player.distanceToSqr(target) > attackRange * attackRange) {
-            status = "Objetivo permitido fuera del alcance real";
+        double distanceSquared = minecraft.player.distanceToSqr(target);
+        if (distanceSquared > attackRange * attackRange) {
+            status = String.format(Locale.ROOT, "Acércate a %s · %.1f bloques", targetName,
+                    Math.sqrt(distanceSquared));
             return;
         }
-        if (!AfkFarmAttackPolicy.mayAttempt(ticks, lastAttackTick,
-                minecraft.player.getAttackStrengthScale(0f))) return;
+        float attackStrength = minecraft.player.getAttackStrengthScale(0f);
+        if (ticks - lastAttackTick < AfkFarmAttackPolicy.MINIMUM_ATTACK_INTERVAL_TICKS) {
+            status = "Objetivo fijado · límite seguro de ataque";
+            return;
+        }
+        if (attackStrength < AfkFarmAttackPolicy.REQUIRED_ATTACK_STRENGTH) {
+            status = String.format(Locale.ROOT, "Esperando cooldown · %.0f%%", attackStrength * 100.0f);
+            return;
+        }
+        if (!AfkFarmAttackPolicy.mayAttempt(ticks, lastAttackTick, attackStrength)) return;
         if (minecraft.gameMode == null) return;
         minecraft.gameMode.attack(minecraft.player, target);
         minecraft.player.swing(InteractionHand.MAIN_HAND);
         lastAttackTick = ticks;
+        status = "Atacando " + targetName;
     }
 
     private LivingEntity nearestTarget(Minecraft minecraft, AfkFarmConfig.Snapshot config) {
+        LivingEntity locked = lockedTarget(minecraft, config);
+        if (locked != null) return locked;
         List<Entity> entities = minecraft.level.getEntities(minecraft.player,
                 minecraft.player.getBoundingBox().inflate(ATTACK_SEARCH_RADIUS), entity ->
                         entity instanceof LivingEntity living && living.isAlive() && entity != minecraft.player
                                 && minecraft.player.hasLineOfSight(entity) && allowed(living, config));
-        return entities.stream().map(entity -> (LivingEntity)entity)
-                .min(Comparator.comparingDouble(minecraft.player::distanceToSqr)).orElse(null);
+        double interactionRangeSquared = Math.pow(minecraft.player.entityInteractionRange(), 2);
+        LivingEntity selected = entities.stream().map(entity -> (LivingEntity)entity)
+                .min(Comparator
+                        .comparing((LivingEntity entity) -> minecraft.player.distanceToSqr(entity)
+                                > interactionRangeSquared)
+                        .thenComparingDouble(minecraft.player::distanceToSqr))
+                .orElse(null);
+        if (selected != null && minecraft.player.distanceToSqr(selected) <= interactionRangeSquared) {
+            lockedTargetId = selected.getId();
+            lockedTargetUuid = selected.getUUID();
+        }
+        return selected;
+    }
+
+    /** Keeps a valid target between ticks, avoiding a full entity scan before every hit. */
+    private LivingEntity lockedTarget(Minecraft minecraft, AfkFarmConfig.Snapshot config) {
+        if (lockedTargetId < 0 || lockedTargetUuid == null) return null;
+        Entity entity = minecraft.level.getEntity(lockedTargetId);
+        if (!(entity instanceof LivingEntity living) || !living.isAlive()
+                || !lockedTargetUuid.equals(living.getUUID())
+                || minecraft.player.distanceToSqr(living) > ATTACK_SEARCH_RADIUS * ATTACK_SEARCH_RADIUS
+                || minecraft.player.distanceToSqr(living) > Math.pow(minecraft.player.entityInteractionRange(), 2)
+                || !minecraft.player.hasLineOfSight(living) || !allowed(living, config)) {
+            clearLockedTarget();
+            return null;
+        }
+        return living;
+    }
+
+    private void clearLockedTarget() {
+        lockedTargetId = -1;
+        lockedTargetUuid = null;
     }
 
     private boolean allowed(LivingEntity entity, AfkFarmConfig.Snapshot config) {

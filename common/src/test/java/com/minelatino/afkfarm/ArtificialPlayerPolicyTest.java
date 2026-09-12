@@ -5,6 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import org.junit.jupiter.api.Test;
 
 final class ArtificialPlayerPolicyTest {
+    @Test void identifiesRemovedProfilesWithinOneSecond() {
+        assertEquals(20, ArtificialPlayerPolicy.REMOVED_PROFILE_TICKS);
+    }
+
     @Test void neverClassifiesAnEntityWhoseProfileWasNotObserved() {
         assertEquals(ArtificialPlayerPolicy.Verdict.UNKNOWN,
                 ArtificialPlayerPolicy.classify(false, 0, false, 500));
