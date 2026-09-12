@@ -1,4 +1,4 @@
-plugins { id 'fabric-loom' version '1.9.2' }
+plugins { id 'net.fabricmc.fabric-loom-remap' }
 
 loom { mixin { defaultRefmapName = 'minelatino_afk_farm.refmap.json' } }
 def mcVersion = project.findProperty('mcVersion') ?: '1.21.4'
@@ -16,14 +16,16 @@ dependencies {
 sourceSets.main {
     java.srcDirs '../common/src/main/java', '../client/src/main/java',
         (mcVersion == '1.21.11' ? '../client-1.21.11/src/main/java' : '../client-1.21.4/src/main/java')
-    resources.srcDirs 'src/main/resources', '../client/src/main/resources'
+    resources.srcDirs 'src/main/resources',
+        '../client/src/main/resources'
 }
 processResources {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     inputs.property 'version', project.version
     inputs.property 'mcVersion', mcVersion
     inputs.property 'fabricLoader', fabricLoader
+    inputs.property 'javaVersion', 21
     filesMatching('fabric.mod.json') {
-        expand(version: project.version, mcVersion: mcVersion, fabricLoader: fabricLoader)
+        expand(version: project.version, mcVersion: mcVersion, fabricLoader: fabricLoader, javaVersion: 21)
     }
 }

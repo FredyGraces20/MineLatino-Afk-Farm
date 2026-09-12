@@ -1,0 +1,8 @@
+{
+  "required": true,
+  "package": "com.minelatino.afkfarm.client.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "refmap": "minelatino_afk_farm.refmap.json",
+  "client": ["MinecraftMixin", "PauseScreenMixin", "DisconnectedScreenMixin", "GuiMixin", "OptionsMixin"],
+  "injectors": { "defaultRequire": 1 }
+}

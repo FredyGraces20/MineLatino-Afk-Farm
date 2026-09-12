@@ -23,8 +23,10 @@ launcher: vive solamente en el backend privado. Sin una cuenta conectada se mues
 | --- | --- | --- |
 | 1.21.4 | Sí | Sí |
 | 1.21.11 | Sí | Sí |
+| 26.2 | Sí | Sí |
 
-Requiere Java 21. Todos los módulos vienen desactivados por defecto.
+Minecraft 1.21.x requiere Java 21 y Minecraft 26.2 requiere Java 25. Todos los
+módulos vienen desactivados por defecto.
 
 ## Flujo
 
@@ -80,11 +82,11 @@ $env:JAVA_HOME = 'ruta-a-java-21'
 ./forge/gradlew.bat -p forge build -PmcVersion=1.21.4 --no-daemon
 ```
 
-Cambie `1.21.4` por `1.21.11` para la otra versión. Para no escribir artefactos en una carpeta
+Cambie `1.21.4` por `1.21.11` o `26.2` para las otras versiones. Para no escribir artefactos en una carpeta
 sincronizada puede definir `MINELATINO_AFK_BUILD_ROOT`.
 
 ## Distribución
 
-`deploy.ps1` compila los cuatro JAR, publica una versión inmutable de GitHub y genera
+`deploy.ps1` compila los seis JAR, publica una versión inmutable de GitHub y genera
 `mods.json` con nombre, tamaño y SHA-1. El backend del launcher distribuye ese manifiesto y el
 launcher verifica el archivo nuevo antes de eliminar versiones anteriores.

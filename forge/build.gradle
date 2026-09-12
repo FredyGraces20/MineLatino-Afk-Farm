@@ -3,11 +3,11 @@ plugins {
     id 'net.minecraftforge.gradle' version '[7.0.3,8)'
 }
 group = 'com.minelatino.afkfarm'
-version = '0.1.0-alpha.9'
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
-tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 21 }
-
+version = '0.1.0-alpha.10'
 def mcVersion = project.findProperty('mcVersion') ?: '1.21.4'
+def targetJavaVersion = mcVersion == '26.2' ? 25 : 21
+java.toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = targetJavaVersion }
 def props = new Properties()
 file('../versions.properties').withInputStream { props.load(it) }
 def forgeVersion = props.getProperty("${mcVersion}.forge.version") ?: '54.1.0'
@@ -22,13 +22,18 @@ minecraft {
 repositories { minecraft.mavenizer(it); maven fg.forgeMaven; maven fg.minecraftLibsMaven; mavenCentral() }
 dependencies {
     implementation minecraft.dependency("net.minecraftforge:forge:${mcVersion}-${forgeVersion}")
-    if (mcVersion == '1.21.11') annotationProcessor 'net.minecraftforge:eventbus-validator:7.0.5'
+    if (mcVersion == '1.21.11' || mcVersion == '26.2') annotationProcessor 'net.minecraftforge:eventbus-validator:7.0.5'
 }
 def selectedForgeSrc = file("src/main/java-${mcVersion}").exists() ? "src/main/java-${mcVersion}" : 'src/main/java'
+def selectedForgeResources = file("src/main/resources-${mcVersion}").exists()
+        ? "src/main/resources-${mcVersion}" : 'src/main/resources'
 sourceSets.main {
-    java.setSrcDirs([selectedForgeSrc, '../common/src/main/java', '../client/src/main/java',
-        mcVersion == '1.21.11' ? '../client-1.21.11/src/main/java' : '../client-1.21.4/src/main/java'])
-    resources.setSrcDirs(['src/main/resources', '../client/src/main/resources'])
+    java.setSrcDirs(mcVersion == '26.2'
+        ? [selectedForgeSrc, '../common/src/main/java', '../client-26.2/src/main/java']
+        : [selectedForgeSrc, '../common/src/main/java', '../client/src/main/java',
+           mcVersion == '1.21.11' ? '../client-1.21.11/src/main/java' : '../client-1.21.4/src/main/java'])
+    resources.setSrcDirs([selectedForgeResources,
+        mcVersion == '26.2' ? '../client-26.2/src/main/resources' : '../client/src/main/resources'])
     resources.exclude 'minelatino_afk_farm.mixins.json'
     resources.exclude 'fabric.mod.json'
 }

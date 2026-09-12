@@ -1,8 +1,8 @@
 # Build and optionally publish every supported MineLatino AFK Farm artifact.
 # mods.json is changed only after GitHub confirms that the release exists.
 param(
-    [string]$Version = '0.1.0-alpha.9',
-    [string[]]$MinecraftVersions = @('1.21.4', '1.21.11'),
+    [string]$Version = '0.1.0-alpha.10',
+    [string[]]$MinecraftVersions = @('1.21.4', '1.21.11', '26.2'),
     [switch]$SkipBuild,
     [switch]$SkipGithub,
     [string]$LocalInstanceMods = ''
@@ -12,25 +12,30 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
 $repo = 'FredyGraces20/MineLatino-Afk-Farm'
 $tag = "v$Version"
-$javaHome = 'C:\Users\fredy\AppData\Roaming\.minecraft\runtime\java-runtime-delta\windows\java-runtime-delta'
-
-if (-not (Test-Path -LiteralPath (Join-Path $javaHome 'bin\java.exe'))) {
-    throw "Java 21 was not found at $javaHome"
-}
-$env:JAVA_HOME = $javaHome
-$env:Path = "$(Join-Path $javaHome 'bin');$env:Path"
+$javaHome21 = 'C:\Users\fredy\AppData\Roaming\.minecraft\runtime\java-runtime-delta\windows\java-runtime-delta'
+$javaHome25 = if ($env:MINELATINO_JAVA25_HOME) { $env:MINELATINO_JAVA25_HOME } else { 'C:\Program Files\Java\jdk-25.0.3' }
 $externalBuildRoot = $env:MINELATINO_AFK_BUILD_ROOT
 
 $artifacts = @()
 if (-not $SkipBuild) {
+    $env:JAVA_HOME = $javaHome21
+    $env:Path = "$(Join-Path $javaHome21 'bin');$env:Path"
     Write-Host 'Running configuration tests' -ForegroundColor Cyan
-    & (Join-Path $repoRoot 'gradlew.bat') ':common:test' '-PmcVersion=1.21.4' '--no-daemon'
+    & (Join-Path $repoRoot 'forge\gradlew.bat') '-p' $repoRoot ':common:test' '-PmcVersion=1.21.4' '--no-daemon'
     if ($LASTEXITCODE -ne 0) { throw 'Configuration tests failed' }
 }
 foreach ($mcVersion in $MinecraftVersions) {
+    $javaHome = if ($mcVersion -eq '26.2') { $javaHome25 } else { $javaHome21 }
+    if (-not (Test-Path -LiteralPath (Join-Path $javaHome 'bin\java.exe'))) {
+        throw "Java required for Minecraft $mcVersion was not found at $javaHome"
+    }
+    $env:JAVA_HOME = $javaHome
+    $env:Path = "$(Join-Path $javaHome 'bin');$env:Path"
+    if ($mcVersion -eq '26.2') { $env:ORG_GRADLE_PROJECT_mcVersion = $mcVersion }
+    else { Remove-Item Env:ORG_GRADLE_PROJECT_mcVersion -ErrorAction SilentlyContinue }
     if (-not $SkipBuild) {
         Write-Host "Building Fabric $mcVersion" -ForegroundColor Cyan
-        & (Join-Path $repoRoot 'gradlew.bat') ':fabric:build' "-PmcVersion=$mcVersion" '--no-daemon'
+        & (Join-Path $repoRoot 'forge\gradlew.bat') '-p' $repoRoot ':fabric:build' "-PmcVersion=$mcVersion" '--no-daemon'
         if ($LASTEXITCODE -ne 0) { throw "Fabric $mcVersion build failed" }
 
         Write-Host "Building Forge $mcVersion" -ForegroundColor Cyan
